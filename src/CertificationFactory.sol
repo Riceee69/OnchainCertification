@@ -30,7 +30,7 @@ contract CertificationFactory {
             revert InvalidName();
         }
 
-        bytes32 salt = keccak256(abi.encode(institutionName, instituionId, _admin, block.timestamp));
+        bytes32 salt = keccak256(abi.encode(institutionName, instituionId, _admin));
 
         bytes memory constructorArgs = abi.encode(institutionName, instituionId, _admin);
 
@@ -43,6 +43,7 @@ contract CertificationFactory {
 
         emit NewInstituionRegistered(institutionName, instituionId);
     }
+
 
     /**
      * @dev Returns the total number of instituions

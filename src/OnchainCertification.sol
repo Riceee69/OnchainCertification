@@ -65,7 +65,6 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         uint256 certId;
         string certName;
         uint256 validity;
-        bytes studentId;
         string studentName;
     }
 
@@ -111,7 +110,6 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     event CertificationIssued(uint256 indexed certificationId, bytes indexed studentId, uint256 tokenId);
     event CertificationURIUpdated(uint256 indexed tokenId, string newName);
     event CertificationURIUpdated(uint256 indexed tokenId, uint256 newValidity);
-    event CertificationURIUpdated(uint256 indexed tokenId, string newName, uint256 newValidity);
     event ExamDeactivated(uint256 examId);
 
 
@@ -157,7 +155,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev Create a new certification type
      * @param _certificationName Name of the certification
-     * @param _validityPeriod Validity period in seconds (0 for permanent)
+     * @param _validityPeriod the time in seconds the certification is valid for 
      */
     function createCertification(
         string calldata _certificationName,
@@ -169,7 +167,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         _certifications[newCertificationId] = Certification({
             certificationId: newCertificationId,
             certificationName: _certificationName,
-            validityPeriod: _validityPeriod
+            validityPeriod: block.timestamp + _validityPeriod
         });
     }
 
@@ -226,6 +224,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
 
         address studentAddress = _studentAddresses[_studentId];
         if (studentAddress == address(0)) revert InvalidStudentId(_studentId);
+        if(!registeredForExam[_students[msg.sender].studentId][_examId]) revert InvalidExamId(_examId);
 
         Exam storage exam = _exams[_examId];
         if (exam.examId == 0) revert InvalidExamId(_examId);
@@ -257,32 +256,40 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @param tokenId the NFT token for which we want to update the metadata
      * @param _certificationId The ID of the certification
      * @param _newName The new certification name (null string if no change)
-     * @param _newValidity New certification validity (0 if no change)
      */
-    function updateCertificationURI(uint256 tokenId, uint256 _certificationId, string calldata _newName, uint256 _newValidity) external onlyRole(ADMIN_ROLE) {
+    function updateCertificationName(uint256 tokenId, uint256 _certificationId, string calldata _newName) external onlyRole(ADMIN_ROLE) {
         StudentCertificates storage studentCert = tokenIdToAttributes[tokenId]; 
 
         if (_certificationId != studentCert.certId) revert InvalidCertificationId(_certificationId);
-        if(bytes(_newName).length == 0 && _newValidity == 0) revert InvalidCertificationUpdate();   
+        if(bytes(_newName).length == 0 ) revert InvalidCertificationUpdate();   
 
-        
-        if(bytes(_newName).length != 0 && _newValidity != 0) {
-            studentCert.certName = _newName;
-            studentCert.validity = _newValidity;
+    
+        studentCert.certName = _newName;
 
-            emit CertificationURIUpdated(tokenId, _newName, _newValidity);
-        } else if(bytes(_newName).length == 0 && _newValidity != 0) {
-            studentCert.validity = _newValidity;
-
-            emit CertificationURIUpdated(tokenId, _newValidity);
-        } else{
-            studentCert.certName = _newName;
-
-            emit CertificationURIUpdated(tokenId, _newName);
-        }
+        emit CertificationURIUpdated(tokenId, _newName);
 
         _setTokenURI(
-            tokenId, generateTokenURI(_certificationId, studentCert.certName, studentCert.validity, studentCert.studentName, studentCert.studentId, tokenId)
+            tokenId, generateTokenURI(_certificationId, studentCert.certName, studentCert.validity, studentCert.studentName, tokenId)
+        );
+    }
+
+    /**
+     * @dev Update the metadata URI for a certification
+     * @param tokenId the NFT token for which we want to update the metadata
+     * @param _certificationId The ID of the certification
+     * @param _validity The new certification name (null string if no change)
+     */
+    function updateCertificationValidity(uint256 tokenId, uint256 _certificationId, uint256 _validity) external onlyRole(ADMIN_ROLE) {
+        StudentCertificates storage studentCert = tokenIdToAttributes[tokenId]; 
+
+        if (_certificationId != studentCert.certId) revert InvalidCertificationId(_certificationId);
+    
+        studentCert.validity = _validity;
+
+        emit CertificationURIUpdated(tokenId, _validity);
+
+        _setTokenURI(
+            tokenId, generateTokenURI(_certificationId, studentCert.certName, studentCert.validity, studentCert.studentName, tokenId)
         );
     }
 
@@ -315,9 +322,9 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         string memory certificateName = certificate.certificationName;
         uint256 validityPeriod = certificate.validityPeriod;
 
-        _mint(studentAddress, _tokenIdCounter++);
+        _mint(studentAddress, ++_tokenIdCounter);
         _setTokenURI(
-            _tokenIdCounter, generateTokenURI(certificateId, certificateName, validityPeriod, _student.name, _student.studentId, _tokenIdCounter)
+            _tokenIdCounter, generateTokenURI(certificateId, certificateName, validityPeriod, _student.name, _tokenIdCounter)
         );
     }
 
@@ -329,6 +336,17 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     //////////////////////////////////////////////////////////
     // VIEW/PURE FUNCTIONS
     //////////////////////////////////////////////////////////
+    /**
+     * @dev The message hash for the validator to sign
+     */
+    function _getMessageHash(bytes calldata _studentId, uint256 _examId, bool passed) public view returns (bytes32) {
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(MESSAGE_TYPEHASH, ValidateExam({studentId: _studentId, examId: _examId, passed: passed}))
+            )
+        );
+    }
+
     /**
      * @dev Get a student's details
      * @param _studentId The ID of the student
@@ -365,21 +383,21 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @return The address of the validator
      */
     function _verifyValidatorSignature(bytes32 _dataHash, bytes memory _signature) private pure returns (address) {
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(_dataHash);
-        (address validator, ECDSA.RecoverError err,) = ECDSA.tryRecover(messageHash, _signature);
+        (address validator, ECDSA.RecoverError err,) = ECDSA.tryRecover(_dataHash, _signature);
         if (err != ECDSA.RecoverError.NoError) revert InvalidSignature();
         return validator;
     }
 
-    function _getMessageHash(bytes calldata _studentId, uint256 _examId, bool passed) private view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(
-                abi.encode(MESSAGE_TYPEHASH, ValidateExam({studentId: _studentId, examId: _examId, passed: passed}))
-            )
-        );
-    }
 
-    function generateTokenURI(uint256 certificateId, string memory certificateName, uint256 validityPeriod, string memory studentName, bytes memory studentId, uint256 tokenId)
+    /**
+     * @dev Generate a token URI
+     * @param certificateId The ID of the certification
+     * @param certificateName The name of the certification
+     * @param validityPeriod The period till which this certificate is valid
+     * @param studentName The name of the certified student
+     * @param tokenId The token Id of the NFT certificate
+     */
+    function generateTokenURI(uint256 certificateId, string memory certificateName, uint256 validityPeriod, string memory studentName, uint256 tokenId)
         private
         returns (string memory)
     {
@@ -389,7 +407,6 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
             certId: certificateId,
             certName: certificateName,
             validity: validityPeriod,
-            studentId: studentId,
             studentName: studentName
         });
 
@@ -397,7 +414,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
             "{",
             '"description": "A dynamic on-chain metadata certificate",',
             '"image": "',
-            generateMetadata(certificateId, certificateName, validityPeriod, studentId, studentName),
+            generateMetadata(certificateId, certificateName, validityPeriod, studentName),
             '",',
             '"name": "OCERT#',
             tokenId.toString(),
@@ -409,11 +426,13 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(dataURI)));
     }
 
+    /**
+     * @dev Generating the SVG image for metadata
+     */
     function generateMetadata(
         uint256 certificationId,
         string memory certificateName,
         uint256 validityPeriod,
-        bytes memory studentId,
         string memory studentName
     ) private pure returns (string memory) {
         //svg for on chain metadata storage 
@@ -432,10 +451,6 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
             '<text x="50%" y="58%" class="base" dominant-baseline="middle" text-anchor="middle">',
             "Certificate Validity: ",
             validityPeriod.toString(),
-            "</text>",
-            '<text x="50%" y="66%" class="base" dominant-baseline="middle" text-anchor="middle">',
-            "Student ID: ",
-            string(abi.encodePacked(studentId)),
             "</text>",
             '<text x="50%" y="74%" class="base" dominant-baseline="middle" text-anchor="middle">',
             "Student Name: ",
