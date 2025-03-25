@@ -11,18 +11,18 @@ contract CertificationFactory {
     mapping(uint256 uuid => bool) uuidTaken;
     address[] public certificationAddresses;
 
-    event NewInstituionRegistered(string institutionName, uint256 instituionId);
+    event NewInstitutionRegistered(string institutionName, uint256 institutionId);
 
     /**
      * @dev Factory to deploy instances of OnchainCertification
      * @param institutionName The institution that is gonna use the OnchainCertification Protocol
-     * @param instituionId Unique Identifier Id for the Institution
+     * @param institutionId Unique Identifier Id for the Institution
      */
-    function deployCertification(string memory institutionName, uint256 instituionId, address _admin)
+    function deployCertification(string memory institutionName, uint256 institutionId, address _admin)
         external
         returns (address certificationAddress)
     {
-        if (uuidTaken[instituionId]) {
+        if (uuidTaken[institutionId]) {
             revert UuidTaken();
         }
 
@@ -30,26 +30,26 @@ contract CertificationFactory {
             revert InvalidName();
         }
 
-        bytes32 salt = keccak256(abi.encode(institutionName, instituionId, _admin));
+        bytes32 salt = keccak256(abi.encode(institutionName, institutionId, _admin));
 
-        bytes memory constructorArgs = abi.encode(institutionName, instituionId, _admin);
+        bytes memory constructorArgs = abi.encode(institutionName, institutionId, _admin);
 
         bytes memory bytecode = abi.encodePacked(type(OnchainCertification).creationCode, constructorArgs);
 
         certificationAddress = Create2.deploy(0, salt, bytecode);
 
-        uuidTaken[instituionId] = true;
+        uuidTaken[institutionId] = true;
         certificationAddresses.push(certificationAddress);
 
-        emit NewInstituionRegistered(institutionName, instituionId);
+        emit NewInstitutionRegistered(institutionName, institutionId);
     }
 
 
     /**
-     * @dev Returns the total number of instituions
-     * @return The total number of instituions
+     * @dev Returns the total number of institutions
+     * @return The total number of institutions
      */
-    function getTotalInstituions() external view returns (uint256) {
+    function getTotalInstitutions() external view returns (uint256) {
         return certificationAddresses.length;
     }
 }

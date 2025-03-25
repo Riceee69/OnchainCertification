@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {ERC721URIStorage, ERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
@@ -97,10 +96,10 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     // Mapping for all exams
     mapping(uint256 => Exam) public _exams;
 
-    //Mapping to check a studentss registered exam
+    // Mapping to check a students's registered exam
     mapping(bytes studentId => mapping(uint256 examId => bool)) public registeredForExam;
 
-    //Mapping for each student on chain cert to the tokenID 
+    // Mapping for each student on chain cert to the tokenID 
     mapping(uint256 => StudentCertificates) public tokenIdToAttributes;
     //////////////////////////////////////////////////////////
     // EVENTS
@@ -193,7 +192,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     }
 
     /**
-     * @dev Allowes students to register for exams
+     * @dev Allows students to register for exams
      * @param examId The ID of the exam to register for
      */
     function registerForExam(uint256 examId) external {
@@ -294,7 +293,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     }
 
     /**
-     * @dev the exam to be deactivated picked uo by the off-chain process
+     * @dev the exam to be deactivated picked up by the off-chain process
      * @param examId The ID of the exam
      */
     function deactivateExam(uint256 examId) external onlyRole(ADMIN_ROLE) {
@@ -316,7 +315,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         address studentAddress = _student.studentAddress;
         require(studentAddress != address(0), "Student does not exist");
 
-        //initial default values
+        // initial default values
         Certification memory certificate = _certifications[_certificationId];
         uint256 certificateId = certificate.certificationId;
         string memory certificateName = certificate.certificationName;
@@ -348,7 +347,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     }
 
     /**
-     * @dev Get a student's details
+     * @dev Get the student's details
      * @param _studentId The ID of the student
      * @return studentId, studentAddress, name, isRegistered
      */
@@ -435,7 +434,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         uint256 validityPeriod,
         string memory studentName
     ) private pure returns (string memory) {
-        //svg for on chain metadata storage 
+        // svg for on chain metadata storage 
         bytes memory svg = abi.encodePacked(
             '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 350 350">',
             "<style>.base { fill: white; font-family: serif; font-size: 14px; }</style>",
