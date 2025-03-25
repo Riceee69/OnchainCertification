@@ -87,16 +87,16 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     uint256 public immutable institutionId;
 
     // Mapping from address to Student
-    mapping(address => Student) private _students;
+    mapping(address => Student) public _students;
 
     // Mapping from student ID to address
     mapping(bytes studentID => address) private _studentAddresses;
 
     // Mapping for all certifications
-    mapping(uint256 => Certification) private _certifications;
+    mapping(uint256 => Certification) public _certifications;
 
     // Mapping for all exams
-    mapping(uint256 => Exam) private _exams;
+    mapping(uint256 => Exam) public _exams;
 
     //Mapping to check a studentss registered exam
     mapping(bytes studentId => mapping(uint256 examId => bool)) public registeredForExam;
@@ -199,7 +199,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @param examId The ID of the exam to register for
      */
     function registerForExam(uint256 examId) external {
-        if (_students[msg.sender].isRegistered) revert StudentNotRegistered();
+        if (!_students[msg.sender].isRegistered) revert StudentNotRegistered();
         if (registeredForExam[_students[msg.sender].studentId][examId]) revert ExamAlreadyRegistered();
         
         Exam memory exam = _exams[examId];
@@ -260,9 +260,9 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @param _newValidity New certification validity (0 if no change)
      */
     function updateCertificationURI(uint256 tokenId, uint256 _certificationId, string calldata _newName, uint256 _newValidity) external onlyRole(ADMIN_ROLE) {
-        StudentCertificates memory studentCert = tokenIdToAttributes[tokenId]; 
+        StudentCertificates storage studentCert = tokenIdToAttributes[tokenId]; 
 
-        if (_certificationId == studentCert.certId) revert InvalidCertificationId(_certificationId);
+        if (_certificationId != studentCert.certId) revert InvalidCertificationId(_certificationId);
         if(bytes(_newName).length == 0 && _newValidity == 0) revert InvalidCertificationUpdate();   
 
         
@@ -308,8 +308,6 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     function _mintCertification(Student storage _student, uint256 _certificationId) private {
         address studentAddress = _student.studentAddress;
         require(studentAddress != address(0), "Student does not exist");
-
-        if (!_student.certifications[_certificationId]) revert InvalidCertificationId(_certificationId);
 
         //initial default values
         Certification memory certificate = _certifications[_certificationId];
@@ -418,7 +416,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         bytes memory studentId,
         string memory studentName
     ) private pure returns (string memory) {
-        //s
+        //svg for on chain metadata storage 
         bytes memory svg = abi.encodePacked(
             '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 350 350">',
             "<style>.base { fill: white; font-family: serif; font-size: 14px; }</style>",
