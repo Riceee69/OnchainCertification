@@ -53,7 +53,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         uint256 validityPeriod;
     }
 
-    //EI712 signature struct
+    //EIP712 signature struct
     struct ValidateExam {
         bytes studentId;
         uint256 examId;
@@ -254,7 +254,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @dev Update the metadata URI for a certification
      * @param tokenId the NFT token for which we want to update the metadata
      * @param _certificationId The ID of the certification
-     * @param _newName The new certification name (null string if no change)
+     * @param _newName The new certification name
      */
     function updateCertificationName(uint256 tokenId, uint256 _certificationId, string calldata _newName) external onlyRole(ADMIN_ROLE) {
         StudentCertificates storage studentCert = tokenIdToAttributes[tokenId]; 
@@ -276,7 +276,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
      * @dev Update the metadata URI for a certification
      * @param tokenId the NFT token for which we want to update the metadata
      * @param _certificationId The ID of the certification
-     * @param _validity The new certification name (null string if no change)
+     * @param _validity The new certification valid timestamp
      */
     function updateCertificationValidity(uint256 tokenId, uint256 _certificationId, uint256 _validity) external onlyRole(ADMIN_ROLE) {
         StudentCertificates storage studentCert = tokenIdToAttributes[tokenId]; 
