@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ERC721URIStorage, ERC721} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -29,6 +30,7 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
     error ExamExpired();
     error ExamAlreadyRegistered();
     error InvalidCertificationUpdate();
+    error SoulboundTokenCannotBeTransferred();
 
     /////////////////////////////////////////////////////////
     // TYPE DECLARATIONS
@@ -470,5 +472,16 @@ contract OnchainCertification is ERC721URIStorage, AccessControl, EIP712 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Override of transferFrom to prevent any transfer.
+    function transferFrom(address, address, uint256) public pure override(ERC721, IERC721) {
+        // Soulbound token cannot be transferred
+        revert SoulboundTokenCannotBeTransferred();
+    }
+
+    function safeTransferFrom(address, address, uint256, bytes memory) public pure override(ERC721, IERC721) {
+        // Soulbound token cannot be transferred
+        revert SoulboundTokenCannotBeTransferred();
     }
 }
